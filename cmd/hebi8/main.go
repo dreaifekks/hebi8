@@ -31,7 +31,8 @@ func run() error {
 	prompt := flag.String("prompt", "", "Prompt text. If empty, remaining args or stdin are used.")
 	maxSteps := flag.Int("max-steps", 8, "Maximum ReAct iterations")
 	maxTokens := flag.Int("max-tokens", 0, "Provider output token cap")
-	timeout := flag.Duration("timeout", 2*time.Minute, "End-to-end agent timeout")
+	timeout := flag.Duration("timeout", 10*time.Minute, "End-to-end agent timeout across all rounds")
+	roundTimeout := flag.Duration("round-timeout", 60*time.Second, "Per-round LLM timeout")
 	allowShell := flag.Bool("shell", true, "Register the built-in run_command skill")
 	workdir := flag.String("workdir", ".", "Root working directory for run_command")
 	verbose := flag.Bool("verbose", false, "Print transcript and tool activity to stderr")
@@ -84,6 +85,7 @@ func run() error {
 		Model:        *model,
 		MaxSteps:     *maxSteps,
 		MaxTokens:    *maxTokens,
+		RoundTimeout: *roundTimeout,
 	})
 	if err != nil {
 		return err
@@ -99,15 +101,19 @@ func run() error {
 
 	if *verbose {
 		printTranscript(os.Stderr, result.Transcript)
-		fmt.Fprintf(os.Stderr, "\nsteps=%d tokens_in=%d tokens_out=%d total=%d\n\n",
+		fmt.Fprintf(os.Stderr, "\nsteps=%d completed=%t completion_signal=%q tokens_in=%d tokens_out=%d total=%d\n\n",
 			result.Steps,
+			result.Completed,
+			result.CompletionText,
 			result.Usage.InputTokens,
 			result.Usage.OutputTokens,
 			result.Usage.TotalTokens,
 		)
 	}
 
-	fmt.Println(result.Message)
+	if result.Message != "" && result.Message != result.CompletionText {
+		fmt.Println(result.Message)
+	}
 	return nil
 }
 

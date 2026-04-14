@@ -3,6 +3,7 @@
 一个用 Go 写的轻量 ReAct Agent 骨架，支持：
 
 - ReAct 式的 think -> act -> observe 循环
+- 显式终止信号协议，只有 `<Hebi8End />` 才视为完成
 - 自定义 skill 注册与调用
 - 内置 shell / 代码执行能力
 - OpenAI / Claude / Gemini 三种主流工具调用接口格式
@@ -123,6 +124,13 @@ func main() {
 - OpenAI: `messages` + `tools` + `tool_calls`
 - Claude: `messages[].content[]` + `tool_use` / `tool_result`
 - Gemini: `contents[].parts[]` + `functionCall` / `functionResponse`
+
+### 1.1 Completion protocol
+
+- assistant 只有在所有任务都完成时，才允许返回纯 `<Hebi8End />`
+- 任何非终止文本都不会被当作完成，而会被追加成下一轮可见的 `SYSTEM OBSERVATION`
+- 每轮 LLM 请求默认 60s 超时；provider 错误或超时不会直接中断，而会作为 observation 传到下一轮
+- `StopReason` 是截断类状态（如 `length` / `max_tokens`）时，即使内容是 `<Hebi8End />` 也不会结束
 
 ### 2. Skill 机制
 
